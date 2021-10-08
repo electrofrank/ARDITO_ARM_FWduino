@@ -1,7 +1,7 @@
 import pygame
 import paho.mqtt.client as mqtt #import the client1
 
-
+en_flag = 0
 flag = 0
 
 broker_address="10.1.0.12" #use external broker
@@ -35,12 +35,20 @@ while True:
         # Possible joystick actions: JOYAXISMOTION JOYBALLMOTION JOYBUTTONDOWN
         # JOYBUTTONUP JOYHATMOTION
         if event.type == pygame.JOYBUTTONDOWN:
-            print("Joystick button pressed.")
+            if joystick.get_button(6):
+                if en_flag == 0:
+                    print("ARM ENABLED")
+                    en_flag = 1
+                else:
+                    en_flag = 0
+                    print("ARM DISABLED")
             flag = 1
 
         if event.type == pygame.JOYBUTTONUP:
             print("Joystick button released.")
             flag = 0
+
+        
 
     
 
@@ -48,17 +56,25 @@ while True:
     #client.publish("ARM/DYN/1",joystick.get_axis(0))
     #client.publish("ARM/DYN/2",joystick.get_axis(1))
     #client.publish("ARM/DYN/3",joystick.get_axis(2))
-        print("arm command")
+        #print("arm command")
         client.publish("ARM/JOINT/1",joystick.get_axis(0))
         client.publish("ARM/JOINT/2",joystick.get_axis(1))
         client.publish("ARM/JOINT/3",joystick.get_axis(2))
         client.publish("ARM/EE",joystick.get_axis(3))
 
     if (flag == 1):
-        print("wrist command")
-        client.publish("ARM/DYN/1",joystick.get_axis(0))
-        client.publish("ARM/DYN/2",joystick.get_axis(1))
-        client.publish("ARM/DYN/3",joystick.get_axis(2))
+        #print("wrist command")
+        client.publish("WRIST/DYN_1",joystick.get_axis(0))
+        client.publish("WRIST/DYN_2",joystick.get_axis(1))
+        client.publish("WRIST/DYN_3",joystick.get_axis(2))
+        client.publish("ARM/EE",joystick.get_axis(3))
+
+    if (en_flag == 1):
+        client.publish("ARM/EN",1)
+   
+    if (en_flag == 0):
+        client.publish("ARM/EN",0)
+
 
 
 

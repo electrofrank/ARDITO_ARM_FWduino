@@ -33,7 +33,12 @@ void setup()
 
 void loop()
 {
-  //create a 16 bit variable to hold the encoders position
+getEncoderValue();
+delay(100);
+}
+
+void getEncoderValue() {
+    //create a 16 bit variable to hold the encoders position
   uint16_t encoderPosition;
   //let's also create a variable where we can count how many times we've tried to obtain the position in case there are errors
   uint8_t attempts;
@@ -45,7 +50,7 @@ void loop()
     Serial.print("Encoder ");
     Serial.print(i);
     Serial.print(": ");
-    Serial.print(joint_pos_act[i]);
+    Serial.print(joint_pos_act[i]*(360/4095.0));
     Serial.print(" - ");
 
   }

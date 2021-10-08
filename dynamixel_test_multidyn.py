@@ -106,9 +106,11 @@ if not ports:
 print('ports found', ports)
 
 dxl =  pypot.dynamixel.DxlIO("COM10",baudrate=57600)
-print('Ok!')
+print('Ok! Scenning motors...')
 
+scan = dxl.scan()
 
+print('Motors:',scan)
 
 print("starting the loop")
 
@@ -145,8 +147,8 @@ while 1:
 
 
         dxl.set_moving_speed({1:-val3})   #giunto1
-        dxl.set_moving_speed({2:-val1})  #giunto2
-        dxl.set_moving_speed({3:-val2})  #giunto3
+        #dxl.set_moving_speed({2:-val1})  #giunto2
+        #dxl.set_moving_speed({3:-val2})  #giunto3
 
 
         time.sleep(0.01)
