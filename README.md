@@ -22,7 +22,7 @@
 
 
 
-** HOW TO USE **
+**HOW TO USE**
 
 - upload ARM_FWduino on the ARM controller. Check if it connect correclty to the broker.
 
