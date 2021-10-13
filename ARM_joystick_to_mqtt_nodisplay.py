@@ -4,7 +4,7 @@ import paho.mqtt.client as mqtt #import the client1
 en_flag = 0
 flag = 0
 
-broker_address="10.1.0.12" #use external broker
+broker_address="10.0.0.110" #use external broker
 #roker_address="m16.cloudmqtt.com " #use external broker
 
 client = mqtt.Client("ARM JOYSTICK") #create new instance
@@ -62,12 +62,22 @@ while True:
         client.publish("ARM/JOINT/3",joystick.get_axis(2))
         client.publish("ARM/EE",joystick.get_axis(3))
 
+        client.publish("WRIST/DYN_1",0)
+        client.publish("WRIST/DYN_2",0)
+        client.publish("WRIST/DYN_3",0)
+
+
     if (flag == 1):
         #print("wrist command")
         client.publish("WRIST/DYN_1",joystick.get_axis(0))
         client.publish("WRIST/DYN_2",joystick.get_axis(1))
         client.publish("WRIST/DYN_3",joystick.get_axis(2))
         client.publish("ARM/EE",joystick.get_axis(3))
+        
+        client.publish("ARM/JOINT/1",0)
+        client.publish("ARM/JOINT/2",0)
+        client.publish("ARM/JOINT/3",0)
+
 
     if (en_flag == 1):
         client.publish("ARM/EN",1)

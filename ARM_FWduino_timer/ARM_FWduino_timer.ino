@@ -51,7 +51,7 @@ const float DXL_PROTOCOL_VERSION = 2.0;
 
 uint8_t DXL[3];
 
-const float dyn_max_speed = 65.0;
+const float dyn_max_speed = 20.0;
 
 float dyn_speed_req[3]; //actual joint position, degree
 
@@ -77,8 +77,8 @@ unsigned long previousMicros = 0;
 unsigned long previousARMMicros = 0;// will store last time LED was updated
 unsigned long cycle = 0;
 
-const long STEPPER_interval = 100000; //1 ms 1000 Hz   // interval at which to blink (milliseconds)
-const long ENCODER_interval = 10000; //1000 us 1ms 1 KHz   // interval at which to blink (milliseconds)
+const long STEPPER_interval = 50000; //1 ms 1000 Hz   // interval at which to blink (milliseconds)
+const long ENCODER_interval = 500; //1000 us 1ms 1 KHz   // interval at which to blink (milliseconds)
 
 
 void setup()
@@ -144,6 +144,8 @@ FindServos();
   dxl.torqueOff(DXL[1]);
   dxl.setOperatingMode(DXL[1], OP_VELOCITY);
   dxl.torqueOn(DXL[1]);
+
+  
   
     }
 
@@ -156,7 +158,8 @@ void loop()
     reconnect();
   }
   
-    client.loop();
+  
+ client.loop();
 
   //moveARM must be called as fast as possible
 
@@ -164,12 +167,12 @@ void loop()
 
   if (currentMicros - previousARMMicros >= ENCODER_interval) {
     
+
     moveARMStepper(joint_speed_req[0], joint_speed_req[1], joint_speed_req[2]);
-    
+
     previousARMMicros = currentMicros;
 
   }
-
 
   if (currentMicros - previousMicros >= STEPPER_interval) {
     // save the last time you blinked the LED
@@ -220,7 +223,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
   //parse mqtt data into right varible
   if (strcmp(topic, "ARM/JOINT/1") == 0) {
-
 
     if (f < -0.3 || f > 0.3)
       joint_speed_req[0] = f;
@@ -298,8 +300,8 @@ void reconnect() {
             client.subscribe("ARM/JOINT/1");
             client.subscribe("ARM/JOINT/2");
             client.subscribe("ARM/JOINT/3");
-            client.subscribe("ARM/EE");
-            client.subscribe("ARM/EN");
+//            client.subscribe("ARM/EE");
+//            client.subscribe("ARM/EN");
       client.subscribe("WRIST/DYN_1");
       client.subscribe("WRIST/DYN_2");
       client.subscribe("WRIST/DYN_3");
@@ -323,9 +325,9 @@ void reconnect() {
 
 void moveARMStepper(float speed_q1, float speed_q2, float speed_q3) {
 
-  Serial.print(speed_q1);
-    Serial.print("  ");
-  Serial.println(speed_q2);
+//  Serial.print(speed_q1);
+//    Serial.print("  ");
+//  Serial.println(speed_q2);
 
   BASE_STEPPER.setSpeed(speed_q3 * 4000); //SI APRE
   SHOULDER_STEPPER.setSpeed(-speed_q2 * 4000);
@@ -351,7 +353,7 @@ void move_WristDinamixel(float s1, float s2, float s3) {
   // Set Goal Velocity using RPM
   dxl.setGoalVelocity(DXL[0], (float)(s1 * dyn_max_speed), UNIT_RPM);
   dxl.setGoalVelocity(DXL[1], (float)(s2 * dyn_max_speed), UNIT_RPM);
-  dxl.setGoalVelocity(DXL[2], s3 * dyn_max_speed, UNIT_RPM);
+  //dxl.setGoalVelocity(DXL[2], s3 * dyn_max_speed, UNIT_RPM);
 }
 
 
