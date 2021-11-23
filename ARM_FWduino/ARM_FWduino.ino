@@ -7,10 +7,11 @@
 #include <SPI.h>
 
 
+// uncomment for use with stm32h7
+//HardwareSerial Serial2(PD10, PA9);
+
 #define DXL_SERIAL   Serial2
-
 #define DEBUG_SERIAL Serial
-
 #define DEBUG 1
 
 //////////// Encoders /////////////////////////
@@ -51,7 +52,7 @@ const float DXL_PROTOCOL_VERSION = 2.0;
 
 uint8_t DXL[3];
 
-const float dyn_max_speed = 65.0;
+const float dyn_max_speed = 15.0;
 
 float dyn_speed_req[3]; //actual joint position, degree
 
@@ -66,7 +67,7 @@ using namespace ControlTableItem;
 //ethernet card mac address
 byte mac[] = {  0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02};
 
-IPAddress server(10, 0, 0, 110);
+IPAddress server(10, 1, 0, 101);
 
 EthernetClient ethClient;
 
@@ -77,15 +78,18 @@ unsigned long previousMicros = 0;
 unsigned long previousARMMicros = 0;// will store last time LED was updated
 unsigned long cycle = 0;
 
-const long STEPPER_interval = 100000; //1 ms 1000 Hz   // interval at which to blink (milliseconds)
-const long ENCODER_interval = 10000; //1000 us 1ms 1 KHz   // interval at which to blink (milliseconds)
+const long WRIST_interval = 50000; //50 ms 20 Hz   // interval at which to blink (milliseconds)
+const long ARM_interval = 200; //1000 us 1ms 1 KHz   // interval at which to blink (milliseconds)
 
 
 void setup()
 {
 
   //Initialize the UART serial connection for debugging
+
   if (DEBUG) {
+//    Serial.setRx(PD9); // using pin name PY_n
+//    Serial.setTx(PD8); // using pin number PYn
     DEBUG_SERIAL.begin(115200); //DEBUG SERIAL
     DEBUG_SERIAL.println("Ardito Arm Controller\n");
   }
@@ -96,14 +100,14 @@ void setup()
   ENC_pin[2] = 36;
 
 
-  SHOULDER_STEPPER.setMaxSpeed(4000);
-  SHOULDER_STEPPER.setAcceleration(1000.0);
+  SHOULDER_STEPPER.setMaxSpeed(2000);
+  SHOULDER_STEPPER.setAcceleration(500.0);
 
-  ELBOW_STEPPER.setMaxSpeed(4000);
-  ELBOW_STEPPER.setAcceleration(1000.0);
+  ELBOW_STEPPER.setMaxSpeed(2000);
+  ELBOW_STEPPER.setAcceleration(500.0);
 
-  BASE_STEPPER.setMaxSpeed(4000);
-  BASE_STEPPER.setAcceleration(1000.0);
+  BASE_STEPPER.setMaxSpeed(2000);
+  BASE_STEPPER.setAcceleration(500.0);
 
   PINZA_STEPPER.setMaxSpeed(2000);
   PINZA_STEPPER.setAcceleration(300.0);
@@ -134,8 +138,8 @@ void setup()
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
 
   // INITIALIZATION LOOP
-    //Ping DYNAMIXEL
-FindServos();
+  //Ping DYNAMIXEL
+  FindServos();
 
   dxl.torqueOff(DXL[0]);
   dxl.setOperatingMode(DXL[0], OP_VELOCITY);
@@ -144,8 +148,12 @@ FindServos();
   dxl.torqueOff(DXL[1]);
   dxl.setOperatingMode(DXL[1], OP_VELOCITY);
   dxl.torqueOn(DXL[1]);
-  
-    }
+
+  dxl.torqueOff(DXL[2]);
+  dxl.setOperatingMode(DXL[2], OP_VELOCITY);
+  dxl.torqueOn(DXL[2]);
+
+}
 
 
 
@@ -155,26 +163,25 @@ void loop()
   if (!client.connected()) {
     reconnect();
   }
-  
-    client.loop();
+
+  client.loop();
 
   //moveARM must be called as fast as possible
 
   unsigned long currentMicros = micros();
 
-  if (currentMicros - previousARMMicros >= ENCODER_interval) {
-    
-    moveARMStepper(joint_speed_req[0], joint_speed_req[1], joint_speed_req[2]);
-    
+  if (currentMicros - previousARMMicros >= ARM_interval) {
+
     previousARMMicros = currentMicros;
 
+    moveARMStepper(joint_speed_req[0], joint_speed_req[1], joint_speed_req[2]);
   }
 
 
-  if (currentMicros - previousMicros >= STEPPER_interval) {
+  if (currentMicros - previousMicros >= WRIST_interval) {
     // save the last time you blinked the LED
     move_WristDinamixel(dyn_speed_req[0], dyn_speed_req[1], dyn_speed_req[2]);
-    
+
 
     previousMicros = currentMicros;
   }
@@ -219,64 +226,13 @@ void callback(char* topic, byte* payload, unsigned int length) {
   float f = s.toFloat();
 
   //parse mqtt data into right varible
-  if (strcmp(topic, "ARM/JOINT/1") == 0) {
-
-
-    if (f < -0.3 || f > 0.3)
-      joint_speed_req[0] = f;
-
-    else
-      joint_speed_req[0] = 0;
+  if (strcmp(topic, "ARM/JOINTS") == 0) {
+    parseString(s);
+    //Serial.println(s);
   }
 
-  if (strcmp(topic, "ARM/JOINT/2") == 0) {
-
-
-    if (f < -0.3 || f > 0.3)
-      joint_speed_req[1] = f;
-
-    else
-      joint_speed_req[1] = 0;
-  }
-
-  if (strcmp(topic, "ARM/JOINT/3") == 0) {
-
-
-    if (f < -0.2 || f > 0.2)
-      joint_speed_req[2] = f;
-
-    else
-      joint_speed_req[2] = 0;
-  }
-
-  if (strcmp(topic, "ARM/EE") == 0) {
-    if (f < -0.3 || f > 0.3)
-      pinza_speed_req = f;
-
-    else
-      pinza_speed_req = 0;
-  }
-
-  if (strcmp(topic, "ARM/EN") == 0) {
-    if (f < -0.3 || f > 0.3)
-      arm_enable = f;
-    else
-      arm_enable = 0;
-  }
-
-  if (strcmp(topic, "WRIST/DYN_1") == 0) {
-    dyn_speed_req[0] = f;
-  }
-
-
-  if (strcmp(topic, "WRIST/DYN_2") == 0) {
-    dyn_speed_req[1] = f;
-
-  }
-
-  if (strcmp(topic, "WRIST/DYN_3") == 0) {
-    dyn_speed_req[2] = f;
-
+  if (strcmp(topic, "WRIST/JOINTS") == 0) {
+    parseStringWRIST(s);
   }
 
 }
@@ -295,19 +251,8 @@ void reconnect() {
       // ... and resubscribe
 
       //subscribe to all useful topic
-            client.subscribe("ARM/JOINT/1");
-            client.subscribe("ARM/JOINT/2");
-            client.subscribe("ARM/JOINT/3");
-            client.subscribe("ARM/EE");
-            client.subscribe("ARM/EN");
-      client.subscribe("WRIST/DYN_1");
-      client.subscribe("WRIST/DYN_2");
-      client.subscribe("WRIST/DYN_3");
-
-
-
-
-
+      client.subscribe("ARM/JOINTS");
+      client.subscribe("WRIST/JOINTS");
 
     } else {
       Serial.print("failed, rc=");
@@ -319,17 +264,11 @@ void reconnect() {
   }
 }
 
-
-
 void moveARMStepper(float speed_q1, float speed_q2, float speed_q3) {
 
-  Serial.print(speed_q1);
-    Serial.print("  ");
-  Serial.println(speed_q2);
-
-  BASE_STEPPER.setSpeed(speed_q3 * 4000); //SI APRE
-  SHOULDER_STEPPER.setSpeed(-speed_q2 * 4000);
-  ELBOW_STEPPER.setSpeed(speed_q1 * 4000); //SI APRE
+  BASE_STEPPER.setSpeed(speed_q3 * 1000); //SI APRE
+  SHOULDER_STEPPER.setSpeed(-speed_q2 * 1000);
+  ELBOW_STEPPER.setSpeed(speed_q1 * 1000); //SI APRE
 
   BASE_STEPPER.runSpeed(); //SI APRE
   SHOULDER_STEPPER.runSpeed();
@@ -345,15 +284,14 @@ void move_EndEffector(float speed_ee) {
 void move_WristDinamixel(float s1, float s2, float s3) {
   //map input (-1,1) to max velocity
 //  Serial.print(s1);
-//    Serial.print("  ");
+//  Serial.print("  ");
 //  Serial.println(s2);
 
   // Set Goal Velocity using RPM
   dxl.setGoalVelocity(DXL[0], (float)(s1 * dyn_max_speed), UNIT_RPM);
   dxl.setGoalVelocity(DXL[1], (float)(s2 * dyn_max_speed), UNIT_RPM);
-  dxl.setGoalVelocity(DXL[2], s3 * dyn_max_speed, UNIT_RPM);
+  dxl.setGoalVelocity(DXL[2], (float)(s3 * dyn_max_speed), UNIT_RPM);
 }
-
 
 void getARM_joint_pos() {
   uint16_t encoderPosition;
@@ -377,14 +315,13 @@ void getARM_joint_pos() {
   Serial.println("\n");
 }
 
-
 void FindServos(void) {
-  
+
   Serial.println("  Try Protocol 2 - broadcast ping: ");
-  Serial.flush(); // flush it as ping may take awhile... 
-      
-  if (uint8_t count_pinged = dxl.ping(DXL_BROADCAST_ID, ping_info, 
-    sizeof(ping_info)/sizeof(ping_info[0]))) {
+  Serial.flush(); // flush it as ping may take awhile...
+
+  if (uint8_t count_pinged = dxl.ping(DXL_BROADCAST_ID, ping_info,
+                                      sizeof(ping_info) / sizeof(ping_info[0]))) {
     Serial.print("Detected Dynamixel : \n");
     for (int i = 0; i < count_pinged; i++)
     {
@@ -396,7 +333,7 @@ void FindServos(void) {
       Serial.println(ping_info[i].firmware_version, DEC);
       //g_servo_protocol[i] = 2;
     }
-  }else{
+  } else {
     Serial.print("Broadcast returned no items : ");
     Serial.println(dxl.getLastLibErrCode());
   }
@@ -404,8 +341,61 @@ void FindServos(void) {
 
 
 
+void parseString(String s) {
 
+  //find commas
+  int slength = s.length();
+  int firstIndex = s.indexOf(',');
+  int secondIndex = s.indexOf(',', firstIndex + 1);
 
+  float temp1 = (s.substring(0, firstIndex)).toFloat();
+  float temp2 = (s.substring(firstIndex + 1 , secondIndex)).toFloat();
+  float temp3 = (s.substring(secondIndex + 1 , slength)).toFloat();
+
+  if (temp1 < -0.3 || temp1 > 0.3)
+    joint_speed_req[0] = temp1;
+  else
+    joint_speed_req[0] = 0;
+
+  if (temp2 < -0.3 || temp2 > 0.3)
+    joint_speed_req[1] = temp2;
+  else
+    joint_speed_req[1] = 0;
+
+  if (temp3 < -0.3 || temp3 > 0.3)
+    joint_speed_req[2] = temp3;
+  else
+    joint_speed_req[2] = 0;
+
+}
+
+void parseStringWRIST(String s) {
+
+  //find commas
+  int slength = s.length();
+  int firstIndex = s.indexOf(',');
+  int secondIndex = s.indexOf(',', firstIndex + 1);
+
+  float temp1 = (s.substring(0, firstIndex)).toFloat();
+  float temp2 = (s.substring(firstIndex + 1 , secondIndex)).toFloat();
+  float temp3 = (s.substring(secondIndex + 1 , slength)).toFloat();
+
+  if (temp1 < -0.3 || temp1 > 0.3)
+    dyn_speed_req[0] = temp1;
+  else
+    dyn_speed_req[0] = 0;
+
+  if (temp2 < -0.3 || temp2 > 0.3)
+    dyn_speed_req[1] = temp2;
+  else
+    dyn_speed_req[1] = 0;
+
+  if (temp3 < -0.3 || temp3 > 0.3)
+    dyn_speed_req[2] = temp3;
+  else
+    dyn_speed_req[2] = 0;
+
+}
 
 
 

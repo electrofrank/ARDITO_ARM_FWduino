@@ -4,8 +4,9 @@ import paho.mqtt.client as mqtt #import the client1
 en_flag = 0
 flag = 0
 
-broker_address="10.0.0.110" #use external broker
-#roker_address="m16.cloudmqtt.com " #use external broker
+broker_address="10.1.0.101" #use external broker
+#rok#broker_address="10.1.0.101" #use external broker
+#broker_address="127.0.0.1" #use external broker
 
 client = mqtt.Client("ARM JOYSTICK") #create new instance
 
@@ -42,11 +43,19 @@ while True:
                 else:
                     en_flag = 0
                     print("ARM DISABLED")
-            flag = 1
 
-        if event.type == pygame.JOYBUTTONUP:
-            print("Joystick button released.")
-            flag = 0
+            if joystick.get_button(5):
+                if flag == 0:
+                    print("WRIST COMMAND")
+                    flag = 1
+                else:
+                    flag = 0
+                    print("ARM COMMAND")
+
+
+
+
+
 
         
 
@@ -57,26 +66,18 @@ while True:
     #client.publish("ARM/DYN/2",joystick.get_axis(1))
     #client.publish("ARM/DYN/3",joystick.get_axis(2))
         #print("arm command")
-        client.publish("ARM/JOINT/1",joystick.get_axis(0))
-        client.publish("ARM/JOINT/2",joystick.get_axis(1))
-        client.publish("ARM/JOINT/3",joystick.get_axis(2))
-        client.publish("ARM/EE",joystick.get_axis(3))
-
-        client.publish("WRIST/DYN_1",0)
-        client.publish("WRIST/DYN_2",0)
-        client.publish("WRIST/DYN_3",0)
+        string_arm = "%f,%f,%f" %( joystick.get_axis(0),joystick.get_axis(1),joystick.get_axis(2))
+        client.publish("ARM/JOINTS",string_arm)
+        string_wrist = "0,0,0"
+        client.publish("WRIST/JOINTS",string_wrist);
 
 
     if (flag == 1):
         #print("wrist command")
-        client.publish("WRIST/DYN_1",joystick.get_axis(0))
-        client.publish("WRIST/DYN_2",joystick.get_axis(1))
-        client.publish("WRIST/DYN_3",joystick.get_axis(2))
-        client.publish("ARM/EE",joystick.get_axis(3))
-        
-        client.publish("ARM/JOINT/1",0)
-        client.publish("ARM/JOINT/2",0)
-        client.publish("ARM/JOINT/3",0)
+        string_arm = "0,0,0"
+        client.publish("ARM/JOINTS",string_arm)
+        string_wrist = "%f,%f,%f" %( joystick.get_axis(0),joystick.get_axis(1),joystick.get_axis(2))
+        client.publish("WRIST/JOINTS",string_wrist);
 
 
     if (en_flag == 1):
