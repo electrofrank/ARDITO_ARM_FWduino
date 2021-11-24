@@ -13,6 +13,8 @@
 #define DXL_SERIAL   Serial2
 #define DEBUG_SERIAL Serial
 #define DEBUG 1
+#define MICROSTEP 1
+#define MULTIPLIER 90*MICROSTEP
 
 //////////// Encoders /////////////////////////
 int ENC_pin[3];
@@ -52,7 +54,7 @@ const float DXL_PROTOCOL_VERSION = 2.0;
 
 uint8_t DXL[3];
 
-const float dyn_max_speed = 15.0;
+const float dyn_max_speed = 5.0;
 
 float dyn_speed_req[3]; //actual joint position, degree
 
@@ -139,19 +141,19 @@ void setup()
 
   // INITIALIZATION LOOP
   //Ping DYNAMIXEL
-  FindServos();
-
-  dxl.torqueOff(DXL[0]);
-  dxl.setOperatingMode(DXL[0], OP_VELOCITY);
-  dxl.torqueOn(DXL[0]);
-
-  dxl.torqueOff(DXL[1]);
-  dxl.setOperatingMode(DXL[1], OP_VELOCITY);
-  dxl.torqueOn(DXL[1]);
-
-  dxl.torqueOff(DXL[2]);
-  dxl.setOperatingMode(DXL[2], OP_VELOCITY);
-  dxl.torqueOn(DXL[2]);
+FindServos();
+//
+//  dxl.torqueOff(DXL[0]);
+//  dxl.setOperatingMode(DXL[0], OP_VELOCITY);
+//  dxl.torqueOn(DXL[0]);
+//
+//  dxl.torqueOff(DXL[1]);
+//  dxl.setOperatingMode(DXL[1], OP_VELOCITY);
+//  dxl.torqueOn(DXL[1]);
+//
+//  dxl.torqueOff(DXL[2]);
+//  dxl.setOperatingMode(DXL[2], OP_VELOCITY);
+//  dxl.torqueOn(DXL[2]);
 
 }
 
@@ -160,6 +162,8 @@ void setup()
 
 void loop()
 {
+  //Serial.println("loop");
+  
   if (!client.connected()) {
     reconnect();
   }
@@ -186,10 +190,6 @@ void loop()
     previousMicros = currentMicros;
   }
 
-
-  //move_EndEffector(pinza_speed_req);
-
-
 }
 
 
@@ -201,21 +201,23 @@ void loop()
 
 
 void ethernet_init() {
-  DEBUG_SERIAL.println("Initialize Ethernet with DHCP:");
-  if (Ethernet.begin(mac) == 0) {
-    DEBUG_SERIAL.println("Failed to configure Ethernet using DHCP");
+
+IPAddress ip(10,1,0,80);
+  
+  DEBUG_SERIAL.println("Initialize Ethernet...");
+  Ethernet.begin(mac,ip);
+  
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
       DEBUG_SERIAL.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-    } else if (Ethernet.linkStatus() == LinkOFF) {
-      DEBUG_SERIAL.println("Ethernet cable is not connected.");
-    }
-    // no point in carrying on, so do nothing forevermore:
-    while (true) {
+        while (true) {
       delay(1);
-    }
-  }
+        }
+   } 
+
+    // no point in carrying on, so do nothing forevermore:
+  
   // print your local IP address:
-  DEBUG_SERIAL.print("My IP address: ");
+  DEBUG_SERIAL.print("Assigned IP address: ");
   DEBUG_SERIAL.println(Ethernet.localIP());
 }
 
@@ -235,6 +237,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
     parseStringWRIST(s);
   }
 
+//  if (strcmp(topic, "ARM/BASE_ANGLE") == 0) {
+//    //esegue una rotazione di n gradi il giunto di base
+//    Serial.println("New base joint position received");
+//    //PositionControl(f);
+//  }
 }
 
 void reconnect() {
@@ -247,13 +254,15 @@ void reconnect() {
 
       // Once connected, publish an announcement...
 
-      client.publish("ARM_PING", "hello world");
+      client.publish("ARM_PING", "hello Ardito");
+      client.publish("ARM/BASE_ANGLE", "0");
+
       // ... and resubscribe
 
       //subscribe to all useful topic
       client.subscribe("ARM/JOINTS");
       client.subscribe("WRIST/JOINTS");
-
+      client.subscribe("ARM/BASE_ANGLE");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -317,7 +326,7 @@ void getARM_joint_pos() {
 
 void FindServos(void) {
 
-  Serial.println("  Try Protocol 2 - broadcast ping: ");
+  //Serial.println("  Try Protocol 2 - broadcast ping: ");
   Serial.flush(); // flush it as ping may take awhile...
 
   if (uint8_t count_pinged = dxl.ping(DXL_BROADCAST_ID, ping_info,
@@ -398,9 +407,13 @@ void parseStringWRIST(String s) {
 }
 
 
-
-
-
+//questa funzione riceve un angolo tramite mqtt e pilota gli stepper in OpenLoop
+void PositionControl(int angle) {
+  int steps = angle*MULTIPLIER;
+  BASE_STEPPER.setAcceleration(200);
+  BASE_STEPPER.setSpeed(100);
+BASE_STEPPER.runToNewPosition(steps);
+}
 
 
 
